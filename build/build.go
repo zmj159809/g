@@ -26,9 +26,9 @@ import (
 	"strings"
 )
 
-const (
-	// ShortVersion short version number
-	ShortVersion = "1.8.1"
+var (
+	// ShortVersion is the version number, overridable by release builds with -ldflags -X.
+	ShortVersion = "1.8.1-dev.1"
 )
 
 // The value of variables come form `gb build -ldflags '-X "build.Built=xxxxx" -X "build.CommitID=xxxx"' `
