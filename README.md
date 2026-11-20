@@ -196,6 +196,25 @@ $ g self update
 You are up to date! g v1.5.0 is the latest version.
 ```
 
+Updates use the GitHub repository embedded at build time, defaulting to `voidint/g`. Override it for a single invocation with `--repo` (also supported by the legacy `g update` command):
+
+```shell
+g self update --repo zmj159809/g
+g self update --repo voidint/g
+```
+
+The override is not saved. Only newer releases are installed; asset selection and SHA-256 verification are unchanged.
+
+Embed your fork's default update repository when building:
+
+```shell
+go build -ldflags "-X github.com/voidint/g/build.UpdateRepo=zmj159809/g" -o g .
+make build UPDATE_REPO=zmj159809/g
+G_UPDATE_REPO=zmj159809/g bash package.sh
+```
+
+The installers also accept a download repository: `G_UPDATE_REPO=zmj159809/g bash install.sh` or `./install.ps1 -repo zmj159809/g` (PowerShell also uses `G_UPDATE_REPO` as its default). This selects the download source; subsequent updates use the repository embedded in the downloaded binary. Use `owner/repo` format and publish the matching release archives and `sha256sum.txt`. Packaging retains the existing asset names.
+
 To uninstall the `g` software itself:
 
 ```shell

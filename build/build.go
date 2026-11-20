@@ -33,6 +33,8 @@ const (
 
 // The value of variables come form `gb build -ldflags '-X "build.Built=xxxxx" -X "build.CommitID=xxxx"' `
 var (
+	// UpdateRepo is the default GitHub repository for self updates, overridable with -ldflags -X.
+	UpdateRepo = "voidint/g"
 	// Built build time
 	Built string
 	// GitBranch current git branch

@@ -118,10 +118,15 @@ function configure_shells() {
 
 function main() {
     local release="1.8.1"
+    local repo="${G_UPDATE_REPO:-voidint/g}"
+    if [[ ! ${repo} =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$ ]] || [[ ${repo#*/} == "." || ${repo#*/} == ".." ]]; then
+        echo "Invalid G_UPDATE_REPO: expected owner/repo" >&2
+        return 1
+    fi
     local os=$(get_os)
     local arch=$(get_arch)
     local dest_file="${HOME}/.g/downloads/g${release}.${os}-${arch}.tar.gz"
-    local url="https://github.com/voidint/g/releases/download/v${release}/g${release}.${os}-${arch}.tar.gz"
+    local url="https://github.com/${repo}/releases/download/v${release}/g${release}.${os}-${arch}.tar.gz"
 
     echo "[1/3] Downloading ${url}"
     rm -f "${dest_file}"

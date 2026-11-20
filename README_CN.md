@@ -196,6 +196,27 @@ $ g self update
 You are up to date! g v1.5.0 is the latest version.
 ```
 
+默认从构建时指定的 GitHub 仓库检查更新；未指定时为 `voidint/g`。可以用 `--repo` 临时选择仓库（旧命令 `g update` 也支持）：
+
+```shell
+g self update --repo zmj159809/g
+g self update --repo voidint/g
+```
+
+此参数只影响本次调用，不保存配置。仅安装版本号更高的 release，不会自动降级；压缩包选择与 SHA-256 校验保持不变。
+
+构建 fork 时注入默认更新仓库，之后直接执行 `g self update` 即可使用该渠道：
+
+```shell
+go build -ldflags "-X github.com/voidint/g/build.UpdateRepo=zmj159809/g" -o g .
+# 或通过 Makefile
+make build UPDATE_REPO=zmj159809/g
+# 跨平台打包（保留原有资产名称及 sha256sum.txt）
+G_UPDATE_REPO=zmj159809/g bash package.sh
+```
+
+安装脚本支持同样的仓库选择：Bash 使用 `G_UPDATE_REPO=zmj159809/g bash install.sh`，PowerShell 使用 `./install.ps1 -repo zmj159809/g`（也读取 `G_UPDATE_REPO` 作为默认值）。安装脚本选择下载来源，二进制后续的默认更新仓库由发布者构建时注入。仓库必须使用 `owner/repo` 格式，且发布对应版本的压缩包和 `sha256sum.txt`。
+
 卸载 g 软件本身
 
 ```shell

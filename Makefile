@@ -2,7 +2,8 @@ GO = CGO_ENABLED=0 GO111MODULE=on GOPROXY=https://goproxy.cn,direct go
 BUILD_DATE := $(shell date '+%Y-%m-%d %H:%M:%S')
 GIT_BRANCH := $(shell git symbolic-ref --short -q HEAD)
 GIT_COMMIT_HASH := $(shell git rev-parse HEAD|cut -c 1-8)
-GO_FLAGS := -v -ldflags="-X 'github.com/voidint/g/build.Built=$(BUILD_DATE)' -X 'github.com/voidint/g/build.GitCommit=$(GIT_COMMIT_HASH)' -X 'github.com/voidint/g/build.GitBranch=$(GIT_BRANCH)'"
+UPDATE_REPO ?= voidint/g
+GO_FLAGS := -v -ldflags="-X 'github.com/voidint/g/build.UpdateRepo=$(UPDATE_REPO)' -X 'github.com/voidint/g/build.Built=$(BUILD_DATE)' -X 'github.com/voidint/g/build.GitCommit=$(GIT_COMMIT_HASH)' -X 'github.com/voidint/g/build.GitBranch=$(GIT_BRANCH)'"
 
 
 all: install lint test clean
@@ -62,7 +63,7 @@ build-freebsd-riscv64:
 	GOOS=freebsd GOARCH=riscv64 $(GO) build $(GO_FLAGS) -o  bin/freebsd-riscv64/g
 
 package:
-	sh ./package.sh
+	bash ./package.sh
 
 install-tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest

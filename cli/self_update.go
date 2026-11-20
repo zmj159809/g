@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"fmt"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -35,11 +36,40 @@ import (
 	"github.com/voidint/g/pkg/sdk/github"
 )
 
-func selfUpdate(*cli.Context) (err error) {
+func updateRepoFlag() cli.Flag {
+	return &cli.StringFlag{
+		Name:  "repo",
+		Usage: "GitHub update repository in owner/repo format (defaults to the build's repository)",
+	}
+}
+
+var updateRepoPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$`)
+
+func parseUpdateRepo(repo string) (owner, name string, err error) {
+	if !updateRepoPattern.MatchString(repo) {
+		return "", "", fmt.Errorf("invalid update repository %q: expected owner/repo", repo)
+	}
+	owner, name, _ = strings.Cut(repo, "/")
+	if name == "." || name == ".." {
+		return "", "", fmt.Errorf("invalid update repository %q: expected owner/repo", repo)
+	}
+	return owner, name, nil
+}
+
+func selfUpdate(c *cli.Context) (err error) {
+	repo := build.UpdateRepo
+	if c.IsSet("repo") {
+		repo = c.String("repo")
+	}
+	owner, name, err := parseUpdateRepo(repo)
+	if err != nil {
+		return cli.Exit(errstring(err), 1)
+	}
+	fmt.Printf("Checking for updates from %s/%s\n", owner, name)
 	up := github.NewReleaseUpdater()
 
 	// 检查更新
-	latest, yes, err := up.CheckForUpdates(semver.MustParse(build.ShortVersion), "voidint", "g")
+	latest, yes, err := up.CheckForUpdates(semver.MustParse(build.ShortVersion), owner, name)
 	if err != nil {
 		return cli.Exit(errstring(err), 1)
 	}
