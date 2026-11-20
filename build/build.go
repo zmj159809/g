@@ -26,8 +26,8 @@ import (
 	"strings"
 )
 
-var (
-	// ShortVersion is the version number, overridable by release builds with -ldflags -X.
+const (
+	// ShortVersion short version number
 	ShortVersion = "1.8.0"
 )
 
