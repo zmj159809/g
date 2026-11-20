@@ -1,5 +1,5 @@
 param (
-    [string] $release = "1.8.0",
+    [string] $release = "1.8.1",
     [string] $base_dir
 )
 

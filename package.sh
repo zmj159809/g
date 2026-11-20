@@ -57,7 +57,7 @@ main() {
     export GO111MODULE="on"
     export GOPROXY="https://goproxy.cn,direct"
 
-    local release="1.8.0"
+    local release="1.8.1"
 
     for item in "darwin_amd64" "darwin_arm64" "linux_386" "linux_amd64" "linux_arm" "linux_arm64" "linux_s390x" "linux_riscv64" "windows_386" "windows_amd64" "windows_arm" "windows_arm64" "freebsd_386" "freebsd_amd64" "freebsd_arm" "freebsd_arm64" "freebsd_riscv64"; do
         package ${release} ${item}

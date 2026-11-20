@@ -26,271 +26,143 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/ThinkInAIXYZ/go-mcp/protocol"
-	"github.com/ThinkInAIXYZ/go-mcp/server"
-	"github.com/ThinkInAIXYZ/go-mcp/transport"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"github.com/voidint/g/build"
 )
 
-func runMcpServer(_ *cli.Context) (err error) {
-	transportServer := transport.NewStdioServerTransport()
-
-	mcpServer, err := server.NewServer(transportServer, server.WithServerInfo(protocol.Implementation{
-		Name:    "g",
-		Version: build.ShortVersion,
-	}))
-	if err != nil {
+func runMcpServer(c *cli.Context) error {
+	if err := newMcpServer().Run(c.Context, &mcp.StdioTransport{}); err != nil {
 		return cli.Exit(errstring(err), 1)
 	}
-
-	envTool, err := protocol.NewTool("env", "Show environment variables of g", struct{}{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	cleanTool, err := protocol.NewTool("clean", "Delete the cached installation package files", struct{}{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	lsTool, err := protocol.NewTool("ls", "List installed go sdk versions", LsReq{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	lsRemoteTool, err := protocol.NewTool("ls-remote", "List remote go sdk versions available for install", LsRemoteReq{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	installTool, err := protocol.NewTool("install", "Download and install a go sdk version", InstallReq{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	uninstallTool, err := protocol.NewTool("uninstall", "Uninstall a go sdk version", UninstallReq{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	useTool, err := protocol.NewTool("use", "Switch to specified go sdk version", UseReq{})
-	if err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-
-	mcpServer.RegisterTool(envTool, envHandler)
-	mcpServer.RegisterTool(cleanTool, cleanHandler)
-	mcpServer.RegisterTool(lsTool, lsHandler)
-	mcpServer.RegisterTool(lsRemoteTool, lsRemoteHandler)
-	mcpServer.RegisterTool(installTool, installHandler)
-	mcpServer.RegisterTool(uninstallTool, uninstallHandler)
-	mcpServer.RegisterTool(useTool, useHandler)
-
-	if err = mcpServer.Run(); err != nil {
-		return cli.Exit(errstring(err), 1)
-	}
-	return err
+	return nil
 }
 
-func envHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	cmd := exec.CommandContext(ctx, "g", "env")
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+func newMcpServer() *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: "g", Version: build.ShortVersion}, nil)
+	mcp.AddTool(s, &mcp.Tool{Name: "env", Description: "Show environment variables of g"}, envHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "clean", Description: "Delete the cached installation package files"}, cleanHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "ls", Description: "List installed go sdk versions"}, lsHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "ls-remote", Description: "List remote go sdk versions available for install"}, lsRemoteHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "install", Description: "Download and install a go sdk version"}, installHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "uninstall", Description: "Uninstall a go sdk version"}, uninstallHandler)
+	mcp.AddTool(s, &mcp.Tool{Name: "use", Description: "Switch to specified go sdk version"}, useHandler)
+	return s
 }
 
-func cleanHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	cmd := exec.CommandContext(ctx, "g", "clean")
-	output, err := cmd.Output()
+func textResult(output []byte) *mcp.CallToolResult {
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(output)}}}
+}
+
+func envHandler(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+	output, err := exec.CommandContext(ctx, "g", "env").Output()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-	if string(output) == "" {
+	return textResult(output), nil, nil
+}
+
+func cleanHandler(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+	output, err := exec.CommandContext(ctx, "g", "clean").Output()
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+	if len(output) == 0 {
 		output = []byte("Done")
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
 
 type UseReq struct {
-	Version string `json:"version" description:"The specific go sdk version number(e.g. '1.21.4')." required:"true"`
+	Version string `json:"version" jsonschema:"The specific go sdk version number(e.g. '1.21.4')."`
 }
 
-func useHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	var useReq UseReq
-	if err := protocol.VerifyAndUnmarshal(req.RawArguments, &useReq); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.CommandContext(ctx, "g", "use", useReq.Version)
-	output, err := cmd.Output()
+func useHandler(ctx context.Context, _ *mcp.CallToolRequest, req UseReq) (*mcp.CallToolResult, any, error) {
+	output, err := exec.CommandContext(ctx, "g", "use", req.Version).Output()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
 
 type LsReq struct {
-	Output string `json:"output" description:"Output format. Optional values: json, text" required:"false"`
+	Output string `json:"output,omitempty" jsonschema:"Output format. Optional values: json, text"`
 }
 
-func lsHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	var lsReq LsReq
-	if err := protocol.VerifyAndUnmarshal(req.RawArguments, &lsReq); err != nil {
-		return nil, err
-	}
-
-	switch lsReq.Output {
+func lsHandler(ctx context.Context, _ *mcp.CallToolRequest, req LsReq) (*mcp.CallToolResult, any, error) {
+	switch req.Output {
 	case "json", "text":
 	default:
-		lsReq.Output = "json"
+		req.Output = "json"
 	}
-
-	cmd := exec.CommandContext(ctx, "g", "ls", "-o", lsReq.Output)
-	output, err := cmd.Output()
+	output, err := exec.CommandContext(ctx, "g", "ls", "-o", req.Output).Output()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
 
 type LsRemoteReq struct {
-	Version string `json:"version" description:"Go sdk version number keywords. Optional values include: stable, unstable, archived, or a version pattern. \nSupported patterns: \n1. Specific version (e.g. '1.21.4'); \n2. Latest version identifier 'latest'; \n3. Wildcards (e.g. '1.21.x', '1.x', '1.18.*'); \n4. Caret ranges for minor version compatibility (e.g. '^1', '^1.18', '^1.18.10'); \n5. Tilde ranges for patch version updates (e.g. '~1.18'); \n6. Greater than comparisons (e.g. '>1.18'); \n7. Less than comparisons (e.g. '<1.16'); \n8. Version ranges (e.g. '1.18-1.20');" required:"false"`
-	Output  string `json:"output" description:"Output format. Optional values: json, text" required:"false"`
+	Version string `json:"version,omitempty" jsonschema:"Go sdk version number keywords. Optional values include: stable, unstable, archived, or a version pattern. Supported patterns: specific version (e.g. '1.21.4'), latest, wildcards (e.g. '1.21.x', '1.x', '1.18.*'), caret ranges (e.g. '^1', '^1.18', '^1.18.10'), tilde ranges (e.g. '~1.18'), comparisons (e.g. '>1.18', '<1.16'), version ranges (e.g. '1.18-1.20')."`
+	Output  string `json:"output,omitempty" jsonschema:"Output format. Optional values: json, text"`
 }
 
-func lsRemoteHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	var lsrReq LsRemoteReq
-	if err := protocol.VerifyAndUnmarshal(req.RawArguments, &lsrReq); err != nil {
-		return nil, err
-	}
-
-	switch lsrReq.Output {
+func lsRemoteHandler(ctx context.Context, _ *mcp.CallToolRequest, req LsRemoteReq) (*mcp.CallToolResult, any, error) {
+	switch req.Output {
 	case "json", "text":
 	default:
-		lsrReq.Output = "json"
+		req.Output = "json"
 	}
-
-	cmd := exec.CommandContext(ctx, "g", "ls-remote", "-o", lsrReq.Output, lsrReq.Version)
-	output, err := cmd.Output()
+	output, err := exec.CommandContext(ctx, "g", "ls-remote", "-o", req.Output, req.Version).Output()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
+	// Text output is already formatted by the CLI and must not be decoded as JSON.
+	if req.Output == "text" {
+		return textResult(output), nil, nil
+	}
 	var items []struct {
 		Version   string `json:"version"`
 		InUse     bool   `json:"inUse"`
 		Installed bool   `json:"installed"`
 	}
-	if err = json.Unmarshal([]byte(output), &items); err != nil {
-		return nil, errors.WithStack(err)
+	if err = json.Unmarshal(output, &items); err != nil {
+		return nil, nil, errors.WithStack(err)
 	}
-
 	if output, err = json.Marshal(items); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
 
 type InstallReq struct {
-	Version      string `json:"version" description:"Go sdk version number keywords. Keywords match the following patterns: \n1. Specific version (e.g. '1.21.4'); \n2. Latest version identifier 'latest'; \n3. Wildcards (e.g. '1.21.x', '1.x', '1.18.*'); \n4. Caret ranges for minor version compatibility (e.g. '^1', '^1.18', '^1.18.10'); \n5. Tilde ranges for patch version updates (e.g. '~1.18'); \n6. Greater than comparisons (e.g. '>1.18'); \n7. Less than comparisons (e.g. '<1.16'); \n8. Version ranges (e.g. '1.18-1.20');" required:"true"`
-	Nouse        bool   `json:"nouse" description:"Don't use the version after installed." required:"false"`
-	SkipChecksum bool   `json:"skip-checksum" description:"Skip checksum verification." required:"false"`
+	Version      string `json:"version" jsonschema:"Go sdk version number keywords. Supported patterns: specific version (e.g. '1.21.4'), latest, wildcards (e.g. '1.21.x', '1.x', '1.18.*'), caret ranges (e.g. '^1', '^1.18', '^1.18.10'), tilde ranges (e.g. '~1.18'), comparisons (e.g. '>1.18', '<1.16'), version ranges (e.g. '1.18-1.20')."`
+	Nouse        bool   `json:"nouse,omitempty" jsonschema:"Don't use the version after installed."`
+	SkipChecksum bool   `json:"skip-checksum,omitempty" jsonschema:"Skip checksum verification."`
 }
 
-func installHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	var installReq InstallReq
-	if err := protocol.VerifyAndUnmarshal(req.RawArguments, &installReq); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.CommandContext(ctx, "g", "install", fmt.Sprintf("--nouse=%t", installReq.Nouse), fmt.Sprintf("--skip-checksum=%t", installReq.SkipChecksum), installReq.Version)
-	output, err := cmd.CombinedOutput()
+func installHandler(ctx context.Context, _ *mcp.CallToolRequest, req InstallReq) (*mcp.CallToolResult, any, error) {
+	output, err := exec.CommandContext(ctx, "g", "install", fmt.Sprintf("--nouse=%t", req.Nouse), fmt.Sprintf("--skip-checksum=%t", req.SkipChecksum), req.Version).CombinedOutput()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
 	if !strings.Contains(string(output), "installed") {
 		if output, err = exec.CommandContext(ctx, "go", "version").Output(); err != nil {
-			return nil, errors.WithStack(err)
+			return nil, nil, errors.WithStack(err)
 		}
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
 
 type UninstallReq struct {
-	Version string `json:"version" description:"The specific go sdk version number(e.g. '1.21.4'). " required:"true"`
+	Version string `json:"version" jsonschema:"The specific go sdk version number(e.g. '1.21.4')."`
 }
 
-func uninstallHandler(ctx context.Context, req *protocol.CallToolRequest) (*protocol.CallToolResult, error) {
-	var uninstallReq UninstallReq
-	if err := protocol.VerifyAndUnmarshal(req.RawArguments, &uninstallReq); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.CommandContext(ctx, "g", "uninstall", uninstallReq.Version)
-	output, err := cmd.CombinedOutput()
+func uninstallHandler(ctx context.Context, _ *mcp.CallToolRequest, req UninstallReq) (*mcp.CallToolResult, any, error) {
+	output, err := exec.CommandContext(ctx, "g", "uninstall", req.Version).CombinedOutput()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
-
-	return &protocol.CallToolResult{
-		Content: []protocol.Content{
-			&protocol.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	return textResult(output), nil, nil
 }
