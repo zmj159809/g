@@ -75,7 +75,7 @@ func (c *Collector) loadDocument() (err error) {
 	if err != nil {
 		return errs.NewURLUnreachableError(c.url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if !httppkg.IsSuccess(resp.StatusCode) {
 		return errs.NewURLUnreachableError(c.url, fmt.Errorf("%d", resp.StatusCode))

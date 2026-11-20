@@ -90,7 +90,7 @@ func TestDownload(t *testing.T) {
 	e := errors.New("unknown error")
 	url := "http://github.com/voidint/g"
 	filename := fmt.Sprintf("%d.txt", time.Now().Unix())
-	defer os.Remove(filename)
+	defer func() { _ = os.Remove(filename) }()
 
 	rr1 := httptest.NewRecorder()
 	rr1.WriteHeader(http.StatusNotFound)

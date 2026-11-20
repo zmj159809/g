@@ -269,8 +269,8 @@ func TestVerifyChecksum(t *testing.T) {
 		filename := fmt.Sprintf("%d.txt", time.Now().Unix())
 		f, err := os.Create(filename)
 		assert.Nil(t, err)
-		defer os.Remove(filename)
-		defer f.Close()
+		defer func() { _ = os.Remove(filename) }()
+		defer func() { assert.NoError(t, f.Close()) }()
 		_, err = f.WriteString("hello 世界！")
 		assert.Nil(t, err)
 

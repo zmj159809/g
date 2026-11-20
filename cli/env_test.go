@@ -21,7 +21,6 @@ package cli
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func Test_printEnv(t *testing.T) {
 		},
 	}
 
-	os.Setenv("G_AUTHOR", "voidint")
+	t.Setenv("G_AUTHOR", "voidint")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

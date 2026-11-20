@@ -78,7 +78,7 @@ func (up ReleaseUpdater) CheckForUpdates(current *semver.Version, owner, repo st
 	if err != nil {
 		return nil, false, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if !httppkg.IsSuccess(resp.StatusCode) {
 		return nil, false, errs.NewURLUnreachableError(url, fmt.Errorf("%d", resp.StatusCode))
@@ -121,7 +121,7 @@ func (up ReleaseUpdater) Apply(rel *Release,
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	url := rel.Assets[idx].BrowserDownloadURL
 	srcFilename := filepath.Join(tmpDir, filepath.Base(url))
@@ -149,7 +149,7 @@ func (up ReleaseUpdater) Apply(rel *Release,
 	if err != nil {
 		return nil
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 	return update.Apply(dstFile, update.Options{})
 }
 

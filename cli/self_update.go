@@ -93,7 +93,7 @@ func findChecksum(items []github.Asset) (algo checksum.Algorithm, expectedChecks
 	if err != nil {
 		return checksum.SHA256, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if !httppkg.IsSuccess(resp.StatusCode) {
 		return "", "", errs.NewURLUnreachableError(checksumFileURL, fmt.Errorf("%d", resp.StatusCode))

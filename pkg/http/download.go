@@ -44,7 +44,7 @@ func Download(srcURL string, filename string, flag int, perm fs.FileMode, withPr
 	if err != nil {
 		return 0, errs.NewDownloadError(srcURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if !IsSuccess(resp.StatusCode) {
 		return 0, errs.NewURLUnreachableError(srcURL, fmt.Errorf("%d", resp.StatusCode))
@@ -54,7 +54,11 @@ func Download(srcURL string, filename string, flag int, perm fs.FileMode, withPr
 	if err != nil {
 		return 0, errs.NewDownloadError(srcURL, err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = errs.NewDownloadError(srcURL, closeErr)
+		}
+	}()
 
 	var dst io.Writer
 	if withProgress {
@@ -95,7 +99,7 @@ func DownloadAsBytes(srcURL string) (data []byte, err error) {
 	if err != nil {
 		return nil, errs.NewDownloadError(srcURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return io.ReadAll(resp.Body)
 }
 

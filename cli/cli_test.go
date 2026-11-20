@@ -51,7 +51,7 @@ func Test_inuse(t *testing.T) {
 
 		_ = os.MkdirAll(versionsDir, 0755)
 		_ = os.MkdirAll(vDir, 0755)
-		defer os.RemoveAll(rootDir)
+		defer func() { _ = os.RemoveAll(rootDir) }()
 
 		assert.Nil(t, mkSymlink(vDir, goroot))
 		assert.Equal(t, "1.12.6", inuse(goroot))

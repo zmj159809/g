@@ -17,13 +17,21 @@ func TestMcpToolSchemasAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer serverSession.Close()
+	defer func() {
+		if err := serverSession.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	client := mcp.NewClient(&mcp.Implementation{Name: "g-test", Version: "1"}, nil)
 	session, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	result, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
