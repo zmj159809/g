@@ -41,6 +41,7 @@ import (
 type Release struct {
 	TagName string  `json:"tag_name"`
 	Assets  []Asset `json:"assets"`
+	Draft   bool    `json:"draft"`
 }
 
 // Asset contains downloadable resource files.
@@ -97,6 +98,49 @@ func (up ReleaseUpdater) CheckForUpdates(current *semver.Version, owner, repo st
 		return &latest, true, nil
 	}
 	return nil, false, nil
+}
+
+// CheckForUpdatesIncludingPrereleases selects the highest non-draft semantic version.
+func (up ReleaseUpdater) CheckForUpdatesIncludingPrereleases(current *semver.Version, owner, repo string) (*Release, bool, error) {
+	var latest *Release
+	best := current
+	for page := 1; ; page++ {
+		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=100&page=%d", owner, repo, page)
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return nil, false, err
+		}
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, false, err
+		}
+		if !httppkg.IsSuccess(resp.StatusCode) {
+			resp.Body.Close()
+			return nil, false, errs.NewURLUnreachableError(url, fmt.Errorf("%d", resp.StatusCode))
+		}
+		var releases []Release
+		err = json.NewDecoder(resp.Body).Decode(&releases)
+		resp.Body.Close()
+		if err != nil {
+			return nil, false, err
+		}
+		for _, release := range releases {
+			if release.Draft {
+				continue
+			}
+			version, err := semver.NewVersion(release.TagName)
+			if err != nil || !version.GreaterThan(best) {
+				continue
+			}
+			candidate := release
+			latest, best = &candidate, version
+		}
+		if !strings.Contains(resp.Header.Get("Link"), `rel="next"`) {
+			break
+		}
+	}
+	return latest, latest != nil, nil
 }
 
 // Apply performs version update to specified release.

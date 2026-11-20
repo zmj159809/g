@@ -43,6 +43,10 @@ func updateRepoFlag() cli.Flag {
 	}
 }
 
+func prereleaseFlag() cli.Flag {
+	return &cli.BoolFlag{Name: "prerelease", Usage: "Include prereleases when checking for updates"}
+}
+
 var updateRepoPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$`)
 
 func parseUpdateRepo(repo string) (owner, name string, err error) {
@@ -69,7 +73,13 @@ func selfUpdate(c *cli.Context) (err error) {
 	up := github.NewReleaseUpdater()
 
 	// 检查更新
-	latest, yes, err := up.CheckForUpdates(semver.MustParse(build.ShortVersion), owner, name)
+	var latest *github.Release
+	var yes bool
+	if c.Bool("prerelease") {
+		latest, yes, err = up.CheckForUpdatesIncludingPrereleases(semver.MustParse(build.ShortVersion), owner, name)
+	} else {
+		latest, yes, err = up.CheckForUpdates(semver.MustParse(build.ShortVersion), owner, name)
+	}
 	if err != nil {
 		return cli.Exit(errstring(err), 1)
 	}

@@ -106,8 +106,8 @@ var (
 		{
 			Name:      "update",
 			Usage:     "Download and install updates to g",
-			UsageText: "g update [--repo owner/repo]",
-			Flags:     []cli.Flag{updateRepoFlag()},
+			UsageText: "g update [--repo owner/repo] [--prerelease]",
+			Flags:     []cli.Flag{updateRepoFlag(), prereleaseFlag()},
 			Action:    selfUpdate,
 			Hidden:    true,
 		},
@@ -130,8 +130,8 @@ var (
 				{
 					Name:      "update",
 					Usage:     "Download and install updates to g",
-					UsageText: "g self update [--repo owner/repo]",
-					Flags:     []cli.Flag{updateRepoFlag()},
+					UsageText: "g self update [--repo owner/repo] [--prerelease]",
+					Flags:     []cli.Flag{updateRepoFlag(), prereleaseFlag()},
 					Action:    selfUpdate,
 				},
 				{

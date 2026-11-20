@@ -203,6 +203,14 @@ g self update --repo zmj159809/g
 g self update --repo voidint/g
 ```
 
+加入 `--prerelease` 可同时检查正式版和预发布版，按语义版本选择最高版本：
+
+```shell
+g self update --repo zmj159809/g --prerelease
+```
+
+默认仍只检查正式版。`--prerelease` 不会允许降级，旧命令 `g update` 也支持。
+
 此参数只影响本次调用，不保存配置。仅安装版本号更高的 release，不会自动降级；压缩包选择与 SHA-256 校验保持不变。
 
 构建 fork 时注入默认更新仓库，之后直接执行 `g self update` 即可使用该渠道：
